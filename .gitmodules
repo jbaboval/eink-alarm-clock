@@ -1,3 +1,6 @@
 [submodule "libsoc"]
 	path = libsoc
 	url = https://github.com/chip-community/libsoc.git
+[submodule "gratis"]
+	path = gratis
+	url = https://github.com/jbaboval/gratis.git
