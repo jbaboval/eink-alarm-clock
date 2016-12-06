@@ -1,0 +1,20 @@
+C.H.I.P Computer (http://nextthing.co)
+  connected to
+PervasiveDisplays EPD extension board-05 (http://repaper.org/tools.html)
+
+
+Pinout:
+      Display     | CHIP
+  -------------------------
+    1 VCC         | VCC-3V3
+    7 SPI_CK      | CSICK
+    8 BUSY        | CSID6
+   10 /RESET      | CSID7
+   11 PANEL_ON    | CSID4
+   12 DISCHARGE   | CSID2
+   13 BORDER_CTRL | CSID0
+   14 SPI_MISO    | CSIVSYNC
+   15 SPI_MOSI    | CSIHSYNC
+   18 FLASH_CS    | VCC-3V3
+   19 /EPD_CS     | CSIPCK
+   20 GND         | GND
