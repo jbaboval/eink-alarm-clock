@@ -4,8 +4,9 @@
 all: build-libsoc build-gratis
 
 deps:
-	apt-get -y install build-essential python-dev python-pip flex bison vim autoconf libtool python-bitarray libb64-dev
+	apt-get -y install build-essential python-dev python-pip flex bison vim autoconf libtool python-bitarray libb64-dev python-geoip geoip-database-contrib
 	pip install spidev
+        pip install pytz
 
 local-install: install-libsoc
 	sed -i '/# ALARM_CLOCK START/,/# ALARM_CLOCK END/d' /etc/rc.local
