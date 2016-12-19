@@ -4,3 +4,6 @@
 [submodule "gratis"]
 	path = gratis
 	url = https://github.com/jbaboval/gratis.git
+[submodule "WeatherIcons"]
+	path = WeatherIcons
+	url = https://github.com/kickstandapps/WeatherIcons.git

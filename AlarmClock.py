@@ -19,20 +19,21 @@
 import sys
 import os
 import atexit
-import glob
+import pickle
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from datetime import datetime
 import time
-from EPD_simulator import EPD
+#from EPD_simulator import EPD
+from EPD import EPD
 from RotaryEncoder import RotaryEncoder
-from datetime import datetime
 from pytz import timezone, country_timezones
 import pytz
 import GeoIP
 import json
 from urllib2 import urlopen
+import forecastio
 
 WHITE = 1
 BLACK = 0
@@ -68,6 +69,22 @@ class Settings20(object):
     DATE_Y = 40
 
 class AlarmClock():
+
+    weather_icons = {
+        'clear-day': 'J',
+        'clear-night': 'D',
+        'rain': 'G',
+        'snow': 'H',
+        'sleet': 'B',
+        'wind': 'L',
+        'fog': 'C',
+        'cloudy': 'A',
+        'partly-cloudy-day': 'F',
+        'partly-cloudy-night': 'E',
+        'hail': 'B',
+        'thunderstorm': 'I',
+        'tornado': 'L' 
+    }
 
     def __init__(self, epd, settings):
 
@@ -130,6 +147,8 @@ class AlarmClock():
         self.timezones = country_timezones('US')
         self.timezone_index = 0
  
+        self.re = RotaryEncoder()
+
         try:
             ip = json.load(urlopen('http://jsonip.com'))['ip']
         except Exception:
@@ -149,7 +168,46 @@ class AlarmClock():
         except Exception:
             raise
 
-        self.twentyfour = True
+        self.twentyfour = False
+
+        try:
+            with open('/root/darksky.key', 'r') as f:
+                self.darksky_key = f.readline().strip()
+                self.weather = True
+        except Exception as e:
+                print "Couldn't get key from /root/darksky.key: " + str(e)
+                self.weather = False
+
+        if self.weather:
+            self._update_weather()
+
+    def _update_weather(self):
+        try:
+            with open('/root/weather-cache.pickle', 'rb') as wf:
+                saved_weather = pickle.load(wf)
+                self.forecast_time = saved_weather['then']
+                self.forecast = saved_weather['forecast']
+                print "Loaded weather data from cache"
+        except Exception as e:
+            print "No cached weather data, or failed to load cache"
+            print e
+            self.forecast_time = datetime(1980, 1, 1)
+
+        if self.weather:
+            since = datetime.now() - self.forecast_time
+            if since.total_seconds() >= (60*60):
+                print "Weather cache is %d seconds old; fetching new data" % since.total_seconds()
+                self.forecast = forecastio.load_forecast(self.darksky_key, self.latitude, self.longitude)
+                self.forecast_time = datetime.now()
+                print self.forecast.json
+                print self.forecast.currently()
+                print self.forecast.hourly()
+                print self.forecast.daily()
+                with open('/root/weather-cache.pickle', 'wb') as wf:
+                    pickle.dump({'then': self.forecast_time, 'forecast': self.forecast}, wf)
+
+        else:
+            print "Weather is disabled"
 
     def _calculate_fontsize(self, fontpath, str, size):
 
@@ -195,8 +253,6 @@ class AlarmClock():
         self.date_font = self._calculate_fontsize(font, string, self.settings.DATE_FONT_SIZE)
 
     def run(self):
-        re = RotaryEncoder()
-
         utc = timezone('UTC')
 
         # initially set all white background
@@ -253,7 +309,7 @@ class AlarmClock():
                 now = utc.localize(datetime.today())
                 if now.second == 0: # or now.second == 30:
                     break
-                input = re.get()
+                input = self.re.get()
                 if input != 0:
                     self.font_index += input
                     self._update_fonts()
