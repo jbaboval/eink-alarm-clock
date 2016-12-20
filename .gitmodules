@@ -7,3 +7,6 @@
 [submodule "WeatherIcons"]
 	path = WeatherIcons
 	url = https://github.com/kickstandapps/WeatherIcons.git
+[submodule "weather-icons"]
+	path = weather-icons
+	url = https://github.com/erikflowers/weather-icons

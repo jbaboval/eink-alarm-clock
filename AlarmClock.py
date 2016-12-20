@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2016 John Baboval
 #
 # Originally based on Clock27.py by Pevasive Displays, Inc.
@@ -71,19 +72,19 @@ class Settings20(object):
 class AlarmClock():
 
     weather_icons = {
-        'clear-day': 'J',
-        'clear-night': 'D',
-        'rain': 'G',
-        'snow': 'H',
-        'sleet': 'B',
-        'wind': 'L',
-        'fog': 'C',
-        'cloudy': 'A',
-        'partly-cloudy-day': 'F',
-        'partly-cloudy-night': 'E',
-        'hail': 'B',
-        'thunderstorm': 'I',
-        'tornado': 'L' 
+        'clear-day': unichr(0xf00d),
+        'clear-night': unichr(0xf02e),
+        'rain': unichr(0xf019),
+        'snow': unichr(0xf076),
+        'sleet': unichr(0xf0b5),
+        'wind': unichr(0xf050),
+        'fog': unichr(0xf014),
+        'cloudy': unichr(0xf013),
+        'partly-cloudy-day': unichr(0xf002),
+        'partly-cloudy-night': unichr(0xf086),
+        'hail': unichr(0xf015),
+        'thunderstorm': unichr(0xf01d),
+        'tornado': unichr(0xf056) 
     }
 
     def __init__(self, epd, settings):
@@ -197,17 +198,18 @@ class AlarmClock():
             since = datetime.now() - self.forecast_time
             if since.total_seconds() >= (60*60):
                 print "Weather cache is %d seconds old; fetching new data" % since.total_seconds()
-                self.forecast = forecastio.load_forecast(self.darksky_key, self.latitude, self.longitude)
+                try:
+                    self.forecast = forecastio.load_forecast(self.darksky_key, self.latitude, self.longitude)
+                except Exception as e:
+                    print "Failed to load forecast data"
+                    print e
+                    return
+
                 self.forecast_time = datetime.now()
-                print self.forecast.json
-                print self.forecast.currently()
-                print self.forecast.hourly()
-                print self.forecast.daily()
                 with open('/root/weather-cache.pickle', 'wb') as wf:
                     pickle.dump({'then': self.forecast_time, 'forecast': self.forecast}, wf)
-
-        else:
-            print "Weather is disabled"
+        #else:
+            # Weather is disabled
 
     def _calculate_fontsize(self, fontpath, str, size):
 
@@ -251,6 +253,8 @@ class AlarmClock():
         self.clock_font = self._calculate_fontsize(font, string, self.settings.CLOCK_FONT_SIZE)
         string = "Wednesday September 29th"
         self.date_font = self._calculate_fontsize(font, string, self.settings.DATE_FONT_SIZE)
+        self.icon_font = ImageFont.truetype('/usr/share/fonts/truetype/WeatherIcons/weathericons-regular-webfont.ttf', 46)
+        self.weather_font = ImageFont.truetype(font, 42)
 
     def run(self):
         utc = timezone('UTC')
@@ -280,8 +284,8 @@ class AlarmClock():
 
             # date
             daystr = '{dt:%A}, {dt:%B} {dt.day}'.format(dt=now)
-            w, h = draw.textsize(daystr, font=self.date_font)
-            draw.text(((width - w)/2, self.settings.DATE_Y), daystr, fill=BLACK, font=self.date_font)
+            dw, dh = draw.textsize(daystr, font=self.date_font)
+            draw.text(((width - dw)/2, self.settings.DATE_Y), daystr, fill=BLACK, font=self.date_font)
 
             if self.twentyfour:
                 timefmt = "%-H:%M"
@@ -293,6 +297,41 @@ class AlarmClock():
             y = self.settings.Y_OFFSET + ((self.settings.DATE_Y - self.settings.Y_OFFSET - h) / 2)
             draw.text(((width - w)/2, y), timestr, fill=BLACK, font=self.clock_font)
 
+            # weather
+#            iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
+            iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
+            iw, ih = draw.textsize(iconstr, font=self.icon_font)
+            x = self.settings.X_OFFSET
+            # The weather icons are pushed to the top of the box
+            # Add 5 pixels, but don't accumulate them
+            y = self.settings.DATE_Y+dh+5
+            draw.text((x, y-8), iconstr, fill=BLACK, font=self.icon_font)
+            tempstr = u"%d\u00B0" % (self.forecast.currently().apparentTemperature) #, self.forecast.daily().data[0].apparentTemperatureMin, self.forecast.daily().data[0].apparentTemperatureMax)
+            tw, th = draw.textsize(tempstr, font=self.weather_font)
+            x += iw
+            draw.text((x, y), tempstr, fill=BLACK, font=self.weather_font)
+            lowstr = u"Low:%d\u00B0" % self.forecast.daily().data[0].apparentTemperatureMin
+            x += tw
+            draw.text((x, y + (th * 0.75)), lowstr, fill=BLACK, font=self.date_font)
+            highstr = u"High:%d\u00B0" % self.forecast.daily().data[0].apparentTemperatureMax
+            draw.text((x, y + 2), highstr, fill=BLACK, font=self.date_font)
+
+            # The moon phase font represents the phase as a unicode glyph between f0d0 and f0eb
+            # with the new moon at the end
+            #
+            # The DarkSky API represents the new moon as 0, the full moon as 0.5, and the rest
+            # as a decimal fraction.
+            #
+            # To render the correct glpyh, first convert the fraction into an index between 0-28,
+            # Subtract 1, and treat negative as a new moon...
+            moonPhase = self.forecast.daily().data[0].moonPhase
+            moonPhase *= 28.0
+            moonPhase = int(round(moonPhase)) - 1
+            if moonPhase < 0:
+                moonPhase = 27
+            moonstr = unichr(moonPhase + 0xf0d0)
+            draw.text((223, y-8), moonstr, fill=BLACK, font=self.icon_font)
+
             # display image on the panel
             self.epd.display(image)
             if not full_update:
@@ -302,7 +341,8 @@ class AlarmClock():
                 self.epd.update()
 
             if (now.minute % 5) == 0:
-                self.epd.blink()  
+                self.epd.blink()
+                self._update_weather()
 
             # wait for next minute
             while True:
@@ -322,19 +362,9 @@ def main(argv):
     """main program - draw HH:MM clock on 2.70" size panel"""
     epd = EPD()
 
-    time.sleep(0.1)
-
     print('panel = {p:s} {w:d} x {h:d}  version={v:s} COG={g:d} FILM={f:d}'.format(p=epd.panel, w=epd.width, h=epd.height, v=epd.version, g=epd.cog, f=epd.film))
 
-    if 'EPD 2.7' == epd.panel:
-        settings = Settings27()
-    elif 'EPD 2.0' == epd.panel:
-        settings = Settings20()
-    else:
-        print('incorrect panel size')
-        sys.exit(1)
-
-    epd.clear()
+    settings = Settings27()
     clock = AlarmClock(epd, settings)
     clock.run()
 

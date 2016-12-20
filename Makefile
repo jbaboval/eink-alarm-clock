@@ -16,6 +16,7 @@ local-install: install-libsoc
 	systemctl disable serial-getty@ttyS0.service
 	mkdir -p /usr/share/fonts/truetype/WeatherIcons/
 	cp 'WeatherIcons/Font Files/WeatherIcons.ttf' /usr/share/fonts/truetype/WeatherIcons/
+        cp weather-icons/font/weathericons-regular-webfont.ttf /usr/share/fonts/truetype/WeatherIcons/
 
 libsoc/configure:
 	cd libsoc && autoreconf -i
