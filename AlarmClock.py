@@ -35,6 +35,7 @@ import GeoIP
 import json
 from urllib2 import urlopen
 import forecastio
+from forecastio.models import Forecast
 
 WHITE = 1
 BLACK = 0
@@ -187,7 +188,8 @@ class AlarmClock():
             with open('/root/weather-cache.pickle', 'rb') as wf:
                 saved_weather = pickle.load(wf)
                 self.forecast_time = saved_weather['then']
-                self.forecast = saved_weather['forecast']
+                response = saved_weather['forecast']
+                self.forecast = Forecast(response.json(), response, response.headers)
                 print "Loaded weather data from cache"
         except Exception as e:
             print "No cached weather data, or failed to load cache"
@@ -207,7 +209,7 @@ class AlarmClock():
 
                 self.forecast_time = datetime.now()
                 with open('/root/weather-cache.pickle', 'wb') as wf:
-                    pickle.dump({'then': self.forecast_time, 'forecast': self.forecast}, wf)
+                    pickle.dump({'then': self.forecast_time, 'forecast': self.forecast.response}, wf)
         #else:
             # Weather is disabled
 
