@@ -96,28 +96,20 @@ class AlarmClock():
 
         self.possible_fonts = [
             '/usr/share/fonts/truetype/fonts-georgewilliams/CaslonBold.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/CaslonItalic.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/GWMonospaceOblique.ttf',
             '/usr/share/fonts/truetype/fonts-georgewilliams/Caliban.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/GWMonospaceBold.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/CaslonRoman.ttf',
             '/usr/share/fonts/truetype/fonts-georgewilliams/Cupola.ttf',
             '/usr/share/fonts/truetype/fonts-georgewilliams/Caslon-Black.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/GWMonospace.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSerif.ttf',
             '/usr/share/fonts/truetype/freefont/FreeMono.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSerifBoldItalic.ttf',
             '/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf',
             '/usr/share/fonts/truetype/freefont/FreeMonoOblique.ttf',
             '/usr/share/fonts/truetype/freefont/FreeMonoBoldOblique.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSerifItalic.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf',
             '/usr/share/fonts/truetype/unifont/unifont.ttf',
-            '/usr/share/fonts/truetype/unifont/unifont_upper.ttf',
             '/usr/share/fonts/truetype/humor-sans/Humor-Sans.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
@@ -127,23 +119,18 @@ class AlarmClock():
             '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
             '/usr/share/fonts/truetype/dustin/dustismo_bold.ttf',
             '/usr/share/fonts/truetype/dustin/Dustismo_Roman.ttf',
-            '/usr/share/fonts/truetype/dustin/Winks.ttf',
             '/usr/share/fonts/truetype/dustin/dustismo_italic.ttf',
-            '/usr/share/fonts/truetype/dustin/Balker.ttf',
-            '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Italic_Bold.ttf',
             '/usr/share/fonts/truetype/dustin/Domestic_Manners.ttf',
-            '/usr/share/fonts/truetype/dustin/dustismo_bold_italic.ttf',
             '/usr/share/fonts/truetype/dustin/Junkyard.ttf',
             '/usr/share/fonts/truetype/dustin/Dustismo.ttf',
             '/usr/share/fonts/truetype/dustin/Wargames.ttf',
             '/usr/share/fonts/truetype/dustin/PenguinAttack.ttf',
             '/usr/share/fonts/truetype/dustin/It_wasn_t_me.ttf',
-            '/usr/share/fonts/truetype/dustin/El_Abogado_Loco.ttf',
             '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Italic.ttf',
             '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Bold.ttf'
         ]
 
-        self.font_index = 10
+        self.font_index = 7
 
         self.state = "OK"
         self.timezones = country_timezones('US')
@@ -284,39 +271,26 @@ class AlarmClock():
             draw.rectangle((1, 1, width - 1, height - 1), fill=WHITE, outline=BLACK)
             draw.rectangle((2, 2, width - 2, height - 2), fill=WHITE, outline=BLACK)
 
-            # date
-            daystr = '{dt:%A}, {dt:%B} {dt.day}'.format(dt=now)
-            dw, dh = draw.textsize(daystr, font=self.date_font)
-            draw.text(((width - dw)/2, self.settings.DATE_Y), daystr, fill=BLACK, font=self.date_font)
-
             if self.twentyfour:
                 timefmt = "%-H:%M"
             else:
                 timefmt = "%-I:%M %p"
 
+            # Time & Date get 2/3rds of the display...
+            daystr = '{dt:%A}, {dt:%B} {dt.day}'.format(dt=now)
+            dw, dh = draw.textsize(daystr, font=self.date_font)
             timestr = now.strftime(timefmt)
-            w, h = draw.textsize(timestr, font=self.clock_font)
-            y = self.settings.Y_OFFSET + ((self.settings.DATE_Y - self.settings.Y_OFFSET - h) / 2)
-            draw.text(((width - w)/2, y), timestr, fill=BLACK, font=self.clock_font)
+            tw, th = draw.textsize(timestr, font=self.clock_font)
+            avail = int((height - 4) * 0.60)
+            space = (avail - dh - th) / 2
+            time_date_bottom = avail + 2
 
-            # weather
-#            iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
-            iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
-            iw, ih = draw.textsize(iconstr, font=self.icon_font)
-            x = self.settings.X_OFFSET
-            # The weather icons are pushed to the top of the box
-            # Add 5 pixels, but don't accumulate them
-            y = self.settings.DATE_Y+dh+5
-            draw.text((x, y-8), iconstr, fill=BLACK, font=self.icon_font)
-            tempstr = u"%d\u00B0" % (self.forecast.currently().apparentTemperature) #, self.forecast.daily().data[0].apparentTemperatureMin, self.forecast.daily().data[0].apparentTemperatureMax)
-            tw, th = draw.textsize(tempstr, font=self.weather_font)
-            x += iw
-            draw.text((x, y), tempstr, fill=BLACK, font=self.weather_font)
-            lowstr = u"Low:%d\u00B0" % self.forecast.daily().data[0].apparentTemperatureMin
-            x += tw
-            draw.text((x, y + (th * 0.75)), lowstr, fill=BLACK, font=self.date_font)
-            highstr = u"High:%d\u00B0" % self.forecast.daily().data[0].apparentTemperatureMax
-            draw.text((x, y + 2), highstr, fill=BLACK, font=self.date_font)
+            y = space + 2
+            draw.text(((width - tw)/2, y), timestr, fill=BLACK, font=self.clock_font)
+
+            y += th
+            y += space
+            draw.text(((width - dw)/2, y), daystr, fill=BLACK, font=self.date_font)
 
             # The moon phase font represents the phase as a unicode glyph between f0d0 and f0eb
             # with the new moon at the end
@@ -332,7 +306,41 @@ class AlarmClock():
             if moonPhase < 0:
                 moonPhase = 27
             moonstr = unichr(moonPhase + 0xf0d0)
-            draw.text((223, y-8), moonstr, fill=BLACK, font=self.icon_font)
+ 
+            # weather
+            avail = height - 4 - avail
+
+            iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
+            iw, ih = draw.textsize(iconstr, font=self.icon_font)
+ 
+            tempstr = u"%d\u00B0" % (self.forecast.currently().apparentTemperature) #, self.forecast.daily().data[0].apparentTemperatureMin, self.forecast.daily().data[0].apparentTemperatureMax)
+            tw, th = draw.textsize(tempstr, font=self.weather_font)
+
+            lowstr = u"Low:%d\u00B0" % self.forecast.daily().data[0].apparentTemperatureMin
+            lw, lh = draw.textsize(lowstr, font=self.date_font)
+            highstr = u"High:%d\u00B0" % self.forecast.daily().data[0].apparentTemperatureMax
+            hw, hh = draw.textsize(highstr, font=self.date_font)
+            mw, mh = draw.textsize(moonstr, font=self.icon_font)
+
+            hlw = max(hw, lw)
+            line_width = iw + tw + mw + max(hw, lw)
+            horiz_space = (width - 4 - line_width) / 5
+
+            x = horiz_space + 2
+            y = time_date_bottom + ((avail - ih) / 2)
+            draw.text((x, y), iconstr, fill=BLACK, font=self.icon_font)
+            x += iw + horiz_space
+            y = time_date_bottom + ((avail - th) / 2)
+            draw.text((x, y), tempstr, fill=BLACK, font=self.weather_font)
+            x += tw + horiz_space
+            hlvspace = (avail - hh - lh) / 2
+            y = time_date_bottom + hlvspace
+            draw.text((x, y), highstr, fill=BLACK, font=self.date_font)
+            y += hh
+            draw.text((x, y), lowstr, fill=BLACK, font=self.date_font)
+            x += hlw + horiz_space
+            y = time_date_bottom + ((avail - mh) / 2)
+            draw.text((x, y), moonstr, fill=BLACK, font=self.icon_font)
 
             # display image on the panel
             self.epd.display(image)

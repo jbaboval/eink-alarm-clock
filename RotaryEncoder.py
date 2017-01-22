@@ -11,6 +11,26 @@ class RotaryEncoder():
 
     def __init__(self):
         atexit.register(GPIO.cleanup)
+
+        # FIXME
+        try:
+            with open("/sys/class/gpio/unexport", "w") as unexport:
+                unexport.write("1015\n")
+        except IOError:
+            pass
+
+        try:
+            with open("/sys/class/gpio/unexport", "w") as unexport:
+                unexport.write("1017\n")
+        except IOError:
+            pass
+
+        try:
+            with open("/sys/class/gpio/unexport", "w") as unexport:
+                unexport.write("1019\n")
+        except IOError:
+            pass
+
         GPIO.setup("XIO-P4", GPIO.OUT)
         GPIO.output("XIO-P4", GPIO.LOW)
 
