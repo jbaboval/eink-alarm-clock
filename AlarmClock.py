@@ -40,36 +40,6 @@ from forecastio.models import Forecast
 WHITE = 1
 BLACK = 0
 
-class Settings27(object):
-    # fonts
-    CLOCK_FONT_SIZE = 100
-    DATE_FONT_SIZE  = 42
-
-    # time
-    X_OFFSET = 5
-    Y_OFFSET = 3
-    COLON_SIZE = 5
-    COLON_GAP = 10
-
-    # date
-    DATE_X = 10
-    DATE_Y = 95
-
-class Settings20(object):
-    # fonts
-    CLOCK_FONT_SIZE = 60
-    DATE_FONT_SIZE  = 30
-
-    # time
-    X_OFFSET = 25
-    Y_OFFSET = 3
-    COLON_SIZE = 3
-    COLON_GAP = 5
-
-    # date
-    DATE_X = 10
-    DATE_Y = 40
-
 class AlarmClock():
 
     weather_icons = {
@@ -88,10 +58,9 @@ class AlarmClock():
         'tornado': unichr(0xf056) 
     }
 
-    def __init__(self, epd, settings):
+    def __init__(self, epd):
 
         self.epd = epd
-        self.settings = settings
         self.menu_font = '/usr/share/fonts/truetype/freefont/FreeSans.ttf'
 
         self.possible_fonts = [
@@ -130,9 +99,9 @@ class AlarmClock():
             '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Bold.ttf'
         ]
 
-        self.font_index = 7
+        self.font_index = 27
 
-        self.state = "OK"
+        self.mode = "weather"
         self.timezones = country_timezones('US')
         self.timezone_index = 0
  
@@ -144,7 +113,7 @@ class AlarmClock():
             try:
                 ip = json.load(urlopen('https://api.ipify.org/?format=json'))['ip']
             except Exception:
-                self.state = "NetworkError"
+                raise
 
         g = GeoIP.open("/usr/share/GeoIP/GeoIPCity.dat", GeoIP.GEOIP_STANDARD)
         try: 
@@ -157,7 +126,15 @@ class AlarmClock():
         except Exception:
             raise
 
-        self.twentyfour = False
+        try:
+            with open('/root/alarmclock-settings.pickle', 'rb') as settings:
+                self.settings = pickle.load(settings)
+        except Exception as e:
+            print "Failed to load settings; using defaults"
+            print e
+            self.settings = {}
+            self.settings['twentyfour'] = False
+            self.settings['alarm'] = False
 
         try:
             with open('/root/darksky.key', 'r') as f:
@@ -169,6 +146,11 @@ class AlarmClock():
 
         if self.weather:
             self._update_weather()
+
+    def _set_setting(self, setting, value):
+        self.settings[setting] = value
+        with open('/root/alarmclock-settings.pickle', 'wb') as settings:
+            pickle.dump(self.settings, settings)
 
     def _update_weather(self):
         try:
@@ -235,62 +217,158 @@ class AlarmClock():
         self.font_index = self.font_index % len(self.possible_fonts)
         font = self.possible_fonts[self.font_index]
         print "Changing font to " + font
-        if self.twentyfour:
-            string = "23:59"
-        else:
-            string = "12:00 PM"
-        self.clock_font = self._calculate_fontsize(font, string, self.settings.CLOCK_FONT_SIZE)
+#        if self.settings['twentyfour']:
+#            string = "23:59"
+#        else:
+        string = "12:22 PM"
+        self.clock_font = self._calculate_fontsize(font, string, 100)
         string = "Wednesday September 29th"
-        self.date_font = self._calculate_fontsize(font, string, self.settings.DATE_FONT_SIZE)
+        self.date_font = self._calculate_fontsize(font, string, 42)
         self.icon_font = ImageFont.truetype('/usr/share/fonts/truetype/WeatherIcons/weathericons-regular-webfont.ttf', 46)
         self.weather_font = ImageFont.truetype(font, 42)
+        self.menu_font = ImageFont.truetype(font, 38)
 
-    def run(self):
-        utc = timezone('UTC')
-
-        # initially set all white background
-        image = Image.new('1', self.epd.size, WHITE)
-
-        # prepare for drawing
-        draw = ImageDraw.Draw(image)
-        width, height = image.size
-
-        # initial time
-        now = utc.localize(datetime.today())
-        full_update = True
-
+    def change_font(self, count):
+        self.font_index += count
         self._update_fonts()
-        self._update_timezone()
+        return True
 
-        while True:
-            now = now.astimezone(self.timezone)
-            # clear the display buffer
-            draw.rectangle((0, 0, width, height), fill=WHITE, outline=WHITE)
+    def main_button(self, button):
+        self.mode = 'menu'
+        self.menuItem = 'alarm'
+        return False
 
-            # border
-            draw.rectangle((1, 1, width - 1, height - 1), fill=WHITE, outline=BLACK)
-            draw.rectangle((2, 2, width - 2, height - 2), fill=WHITE, outline=BLACK)
+    menu = {
+        # Main menu
+        'settings':  { 'text':         "Settings",
+                       'subArrow':     True,
+                       'buttonAction': 'goto',
+                       'buttonParam':  'setting-24h',
+                       'next':         'alarm',
+                       'prev':         'exit'
+                     },
+        'alarm':     { 'text':         "Alarm",
+                       'subArrow':     False,
+                       'buttonAction': 'toggle',
+                       'buttonParam':  'alarm',
+                       'next':         'set-alarm',
+                       'prev':         'settings'
+                     },
+        'set-alarm': { 'text':         "Set Alarm",
+                       'subArrow':     True,
+                       'buttonAction': 'mode',
+                       'buttonParam':  'set',
+                       'next':         'exit',
+                       'prev':         'alarm'
+                     },
+        'exit':      { 'text':         "Exit",
+                       'subArrow':     False,
+                       'buttonAction': 'mode',
+                       'buttonParam':  'weather',
+                       'next':         'settings',
+                       'prev':         'set-alarm'
+                     },
 
-            if self.twentyfour:
-                timefmt = "%-H:%M"
-            else:
-                timefmt = "%-I:%M %p"
+        # Settings menu
+        'setting-24h': { 'text':         "24 Hour",
+                         'subArrow':     False,
+                         'buttonAction': 'toggle',
+                         'buttonParam':  'twentyfour',
+                         'next':         'setting-alarm-tone',
+                         'prev':         'setting-exit'
+                       },
+        'setting-alarm-tone':
+                       { 'text':         "Ringtone",
+                         'subArrow':     True,
+                         'buttonAction': 'mode',
+                         'buttonParam':  'tone',
+                         'next':         'setting-exit',
+                         'prev':         'setting-24h'
+                       },
+        'setting-exit':      { 'text':         "Exit",
+                       'subArrow':     False,
+                       'buttonAction': 'mode',
+                       'buttonParam':  'weather',
+                       'next':         'setting-24h',
+                       'prev':         'setting-alarm-tone'
+                     }
+    }
 
-            # Time & Date get 2/3rds of the display...
-            daystr = '{dt:%A}, {dt:%B} {dt.day}'.format(dt=now)
-            dw, dh = draw.textsize(daystr, font=self.date_font)
-            timestr = now.strftime(timefmt)
-            tw, th = draw.textsize(timestr, font=self.clock_font)
-            avail = int((height - 4) * 0.60)
-            space = (avail - dh - th) / 2
-            time_date_bottom = avail + 2
 
-            y = space + 2
-            draw.text(((width - tw)/2, y), timestr, fill=BLACK, font=self.clock_font)
+    def draw_menu(self, draw, width, height, time_date_bottom):
 
-            y += th
-            y += space
-            draw.text(((width - dw)/2, y), daystr, fill=BLACK, font=self.date_font)
+        avail = height - time_date_bottom - 2
+
+        menustr = "> " + AlarmClock.menu[self.menuItem]['text']
+        w, h = draw.textsize(menustr, font=self.menu_font)
+        
+        vspace = (avail - h) / 2
+        y = time_date_bottom + vspace
+        x = 8
+
+        draw.text((x, y), menustr, fill=BLACK, font=self.menu_font)
+
+        x += w
+
+        if AlarmClock.menu[self.menuItem]['subArrow']:
+            arrowstr = unichr(0xf04d)
+            draw.text((x, y - 8), arrowstr, fill=BLACK, font=self.icon_font)
+        elif AlarmClock.menu[self.menuItem]['buttonAction'] == 'toggle':
+            param = AlarmClock.menu[self.menuItem]['buttonParam']
+            checktxt = " - " + ("ON" if self.settings[param] else "OFF")
+            draw.text((x, y), checktxt, fill=BLACK, font=self.menu_font)
+
+        try:
+            now = time.time()
+            if now - self.lastMenuAction > 30:
+                self.mode = 'weather'
+        except:
+            self.lastMenuAction = time.time()
+
+        return False
+
+    def menu_turn(self, count):
+
+        self.lastMenuAction = time.time()
+
+        while (count > 0):
+            self.menuItem = AlarmClock.menu[self.menuItem]['next']
+            count -= 1
+
+        while (count < 0):
+            self.menuItem = AlarmClock.menu[self.menuItem]['prev']
+            count += 1
+
+        return False
+
+    def menu_button(self, button):
+
+        self.lastMenuAction = time.time()
+
+        entry = AlarmClock.menu[self.menuItem]
+        action = entry['buttonAction']
+        param = entry['buttonParam']
+
+        if action == 'toggle':
+            self._set_setting(param, not self.settings[param])
+        elif action == 'mode':
+            self.mode = param
+            return True
+        elif action == 'goto':
+            self.menuItem = param
+
+        return False
+
+    def draw_set(self, draw, width, height, time_date_bottom):
+        return
+
+    def set_turn(self, count):
+        return
+
+    def set_press(self, button):
+        return
+
+    def draw_weather(self, draw, width, height, time_date_bottom):
 
             # The moon phase font represents the phase as a unicode glyph between f0d0 and f0eb
             # with the new moon at the end
@@ -308,7 +386,7 @@ class AlarmClock():
             moonstr = unichr(moonPhase + 0xf0d0)
  
             # weather
-            avail = height - 4 - avail
+            avail = height - 2 - time_date_bottom
 
             iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
             iw, ih = draw.textsize(iconstr, font=self.icon_font)
@@ -342,6 +420,62 @@ class AlarmClock():
             y = time_date_bottom + ((avail - mh) / 2)
             draw.text((x, y), moonstr, fill=BLACK, font=self.icon_font)
 
+    def run(self):
+        utc = timezone('UTC')
+
+        blinked = False
+        timeUpdate = True
+
+        # initially set all white background
+        image = Image.new('1', self.epd.size, WHITE)
+
+        # prepare for drawing
+        draw = ImageDraw.Draw(image)
+        width, height = image.size
+
+        # initial time
+        now = utc.localize(datetime.today())
+        full_update = True
+
+        self._update_fonts()
+        self._update_timezone()
+
+        while True:
+            now = now.astimezone(self.timezone)
+            # clear the display buffer
+            draw.rectangle((0, 0, width, height), fill=WHITE, outline=WHITE)
+
+            # border
+            draw.rectangle((1, 1, width - 1, height - 1), fill=WHITE, outline=BLACK)
+            draw.rectangle((2, 2, width - 2, height - 2), fill=WHITE, outline=BLACK)
+
+            if self.settings['twentyfour']:
+                timefmt = "%-H:%M"
+            else:
+                timefmt = "%-I:%M %p"
+
+            # Time & Date get 2/3rds of the display...
+            daystr = '{dt:%A}, {dt:%B} {dt.day}'.format(dt=now)
+            dw, dh = draw.textsize(daystr, font=self.date_font)
+            timestr = now.strftime(timefmt)
+            tw, th = draw.textsize(timestr, font=self.clock_font)
+            avail = int((height - 4) * 0.60)
+            space = (avail - dh - th) / 2
+            time_date_bottom = avail + 2
+
+            y = space + 2
+            draw.text(((width - tw)/2, y), timestr, fill=BLACK, font=self.clock_font)
+
+            y += th
+            y += space
+            draw.text(((width - dw)/2, y), daystr, fill=BLACK, font=self.date_font)
+
+            try:
+                AlarmClock.modes[self.mode]['render_bottom'](self, draw, width, height, time_date_bottom)
+            except Exception as e:
+                print e
+                pass
+
             # display image on the panel
             self.epd.display(image)
             if not full_update:
@@ -351,22 +485,49 @@ class AlarmClock():
                 self.epd.update()
 
             if (now.minute % 5) == 0:
-                self.epd.blink()
-                self._update_weather()
+                if blinked == False:
+                    blinked = True
+                    self.epd.blink()
+                    self._update_weather()
+            else:
+                blinked = True
 
             # wait for next minute
+            i = 0
             while True:
-                now = utc.localize(datetime.today())
-                if now.second == 0: # or now.second == 30:
-                    break
+                if (i % 100) == 0: # Only call today() once every 100 loops
+                    now = utc.localize(datetime.today())
+                    if now.second == 0:
+                        if timeUpdate: # Only update the time once per minute
+                            timeUpdate = False
+                            break
+                    else:
+                        timeUpdate = True
+
+                i += 1
+
                 input = self.re.get()
                 if input != 0:
-                    self.font_index += input
-                    self._update_fonts()
-
-                    full_update = True
+                    full_update = AlarmClock.modes[self.mode]['knob'](self, input)
                     break
-                time.sleep(0.1)
+                button = self.re.get_button()
+                if button != 0:
+                    full_update = AlarmClock.modes[self.mode]['button'](self, button)
+                    break
+                time.sleep(0.01)
+
+    modes = {
+        'weather': { 'render_bottom': draw_weather,
+                     'knob':          change_font,
+                     'button':        main_button },
+        'menu': {    'render_bottom': draw_menu,
+                     'knob':          menu_turn,
+                     'button':        menu_button },
+        'set':  {    'render_bottom': draw_set,
+                     'knob':          set_turn,
+                     'button':        set_press }
+    }
+
 
 def main(argv):
     """main program - draw HH:MM clock on 2.70" size panel"""
@@ -374,8 +535,7 @@ def main(argv):
 
     print('panel = {p:s} {w:d} x {h:d}  version={v:s} COG={g:d} FILM={f:d}'.format(p=epd.panel, w=epd.width, h=epd.height, v=epd.version, g=epd.cog, f=epd.film))
 
-    settings = Settings27()
-    clock = AlarmClock(epd, settings)
+    clock = AlarmClock(epd)
     clock.run()
 
 # main
