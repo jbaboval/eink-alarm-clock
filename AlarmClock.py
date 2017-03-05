@@ -192,7 +192,9 @@ class AlarmClock():
         self.mode = "weather"
         self.timezones = country_timezones('US')
         self.timezone_index = 0
-        self.alarming = False
+        self.stop_alarming()
+        atexit.register(self.stop_alarming)
+        self.snooze = 0
 
         self.re = RotaryEncoder()
 
@@ -226,6 +228,7 @@ class AlarmClock():
             self.settings['alarm'] = False
             self.settings['font_index'] = 22
             self.settings['tone_index'] = 0
+            self.settings['alarm_time'] = 360 # Minutes from midnight
 
         try:
             with open('/root/darksky.key', 'r') as f:
@@ -323,7 +326,6 @@ class AlarmClock():
         subprocess.check_output(['mpg123', self.possible_tones[self.settings['tone_index']]['filename']])
 
     def change_font(self, count):
-        self.lastMenuAction = time.time()
         tone_index = self.settings['tone_index']
         tone_index += count
         tone_index = tone_index % len(self.possible_tones)
@@ -331,20 +333,69 @@ class AlarmClock():
         return True
 
     def change_tone(self, count):
-        self.lastMenuAction = time.time()
         self._set_setting('tone_index', self.settings['tone_index'] + count)
         self._play_tone_once()
         return True
 
+    def snooze_button(self, button):
+        if self.alarming or self.snooze > 0:
+
+            if self.snooze_value == 0:
+                self.stop_alarming()
+                self.snooze = 0
+                self.mode = 'weather'
+                print "Alarm stopped until tomorrow..."
+                return True
+
+            now = self.utc.localize(datetime.today())
+            now = now.astimezone(self.timezone)
+            # Set snooze to snooze_value from now
+            self.snooze = ((now.hour * 60) + now.minute) - self.settings['alarm_time'] + self.snooze_value
+            self.stop_alarming()
+            print 'Snoozing!'
+            self.mode = 'weather'
+        return True
+
+    def start_alarming(self):
+        self.alarming = True
+        try:
+            self.mpg123.kill()
+        except:
+            pass
+        finally:
+            self.mpg123 = subprocess.Popen(['mpg123', '--quiet', '--mono', '--loop', '-1', self.possible_tones[self.settings['tone_index']]['filename']], close_fds=True)
+
+    def stop_alarming(self):
+        self.alarming = False
+        try:
+            self.mpg123.kill()
+        except:
+            pass
+
+    def snooze_turn(self, count):
+        self.snooze_value += count
+	if self.snooze_value < 0:
+	       self.snooze_value = 0
+        return True
+
     def main_button(self, button):
-        self.mode = 'menu'
-        self.menuItem = 'alarm'
+        if self.alarming:
+            now = self.utc.localize(datetime.today())
+            now = now.astimezone(self.timezone)
+            # Set snooze to 5 minutes from now
+            self.snooze = ((now.hour * 60) + now.minute) - self.settings['alarm_time'] + 5
+            print 'Snoozing!'
+            self.stop_alarming()
+        else:
+            self.mode = 'menu'
+            self.menuItem = 'alarm'
         return False
 
     def main_knob(self, count):
-        if self.alarming:
+        if self.alarming or self.snooze > 0:
             self.mode = 'snooze'
-            return False
+            self.snooze_value = 5
+            return self.snooze_turn(count)
         else:
             self.mode = 'menu'
             self.menuItem = 'alarmOnly'
@@ -424,7 +475,7 @@ class AlarmClock():
                        },
         'alarmOnly-return':
                        { 'text':         "Exit",
-                         'subArror':     False,
+                         'subArrow':     False,
                          'buttonAction': 'mode',
                          'buttonParam':  'weather',
                          'next':         'alarmOnly',
@@ -450,10 +501,10 @@ class AlarmClock():
 
         try:
             now = time.time()
-            if now - self.lastMenuAction > 15:
+            if now - self.lastAction > 15:
                 self.mode = 'weather'
         except:
-            self.lastMenuAction = time.time()
+            self.lastAction = time.time()
 
         return False
 
@@ -474,10 +525,10 @@ class AlarmClock():
 
         try:
             now = time.time()
-            if now - self.lastMenuAction > 15:
+            if now - self.lastAction > 15:
                 self.mode = 'weather'
         except:
-            self.lastMenuAction = time.time()
+            self.lastAction = time.time()
 
         return False
 
@@ -506,17 +557,14 @@ class AlarmClock():
 
         try:
             now = time.time()
-            if now - self.lastMenuAction > 15:
+            if now - self.lastAction > 15:
                 self.mode = 'weather'
         except:
-            self.lastMenuAction = time.time()
+            self.lastAction = time.time()
 
         return False
 
     def menu_turn(self, count):
-
-        self.lastMenuAction = time.time()
-
         while (count > 0):
             self.menuItem = AlarmClock.menu[self.menuItem]['next']
             count -= 1
@@ -528,9 +576,6 @@ class AlarmClock():
         return False
 
     def menu_button(self, button):
-
-        self.lastMenuAction = time.time()
-
         entry = AlarmClock.menu[self.menuItem]
         action = entry['buttonAction']
         param = entry['buttonParam']
@@ -545,14 +590,92 @@ class AlarmClock():
 
         return False
 
+    def draw_snooze(self, draw, width, height, time_date_bottom):
+        avail = height - time_date_bottom - 2
+
+        if self.snooze_value == 0:
+            snooze_str = "Stop Alarm"
+        else:
+            snooze_str = "Snooze: "
+            snooze_str += "%d Min" % self.snooze_value
+
+        w, h = draw.textsize(snooze_str, font=self.menu_font)
+
+        vspace = (avail - h) / 2
+        y = time_date_bottom + vspace
+        x = 8
+
+        draw.text((x, y), snooze_str, fill=BLACK, font=self.menu_font)
+
+        x += w
+
+        try:
+            now = time.time()
+            if now - self.lastAction > 15:
+                self.mode = 'weather'
+        except:
+            self.lastAction = time.time()
+
+        return False
+
     def draw_set(self, draw, width, height, time_date_bottom):
-        return
+        avail = height - time_date_bottom - 2
+
+        try:
+            alarm_time = self.settings['alarm_time']
+        except:
+            alarm_time = 360
+
+        alarm_hour = alarm_time / 60
+        alarm_minute = alarm_time % 60
+
+        alarmstr = "Alarm: "
+
+        if self.settings['twentyfour']:
+            alarmstr += "%d:%02d" % (alarm_hour, alarm_minute)
+        else:
+            alarmstr += "%d:%02d" % ((lambda x: 12 if x == 0 else x)(alarm_hour % 12), alarm_minute)
+            if alarm_hour >= 12:
+                alarmstr += " PM"
+            else:
+                alarmstr += " AM"
+
+        w, h = draw.textsize(alarmstr, font=self.menu_font)
+
+        vspace = (avail - h) / 2
+        y = time_date_bottom + vspace
+        x = 8
+
+        draw.text((x, y), alarmstr, fill=BLACK, font=self.menu_font)
+
+        x += w
+
+        try:
+            now = time.time()
+            if now - self.lastAction > 15:
+                self.mode = 'weather'
+        except:
+            self.lastAction = time.time()
+
+        return False
 
     def set_turn(self, count):
-        return
+        if count > 10:
+            count *= 10
+        elif count > 5:
+            count *= 5
 
-    def set_press(self, button):
-        return
+        try:
+            alarm_time = self.settings['alarm_time']
+        except:
+            alarm_time = 360
+        self._set_setting('alarm_time', (alarm_time + count) % 1440)
+        return False
+
+    def set_button(self, button):
+        self.mode = 'weather'
+        logging.debug("Set alarm value to %d" % self.settings['alarm_time'])
+        return True
 
     def draw_weather(self, draw, width, height, time_date_bottom):
 
@@ -607,7 +730,7 @@ class AlarmClock():
             draw.text((x, y), moonstr, fill=BLACK, font=self.icon_font)
 
     def run(self):
-        utc = timezone('UTC')
+        self.utc = timezone('UTC')
 
         blinked = False
 
@@ -619,15 +742,15 @@ class AlarmClock():
         width, height = image.size
 
         # initial time
-        now = utc.localize(datetime.today())
+        self._update_timezone()
+        now = self.utc.localize(datetime.today())
+        now = now.astimezone(self.timezone)
         full_update = True
 
         self._update_fonts()
-        self._update_timezone()
 
         while True:
             prev = now
-            now = now.astimezone(self.timezone)
 
             start = time.time()
             # clear the display buffer
@@ -665,6 +788,7 @@ class AlarmClock():
             t_clock = time.time()
 
             try:
+                logging.debug("Calling " + str(AlarmClock.modes[self.mode]['render_bottom']) + " Mode: %s" % self.mode)
                 AlarmClock.modes[self.mode]['render_bottom'](self, draw, width, height, time_date_bottom)
             except Exception as e:
                 print e
@@ -697,13 +821,24 @@ class AlarmClock():
             i = 0
             while True:
                 if (i % 100) == 0: # Only call today() once every 100 loops
-                    now = utc.localize(datetime.today())
+                    now = self.utc.localize(datetime.today())
+                    now = now.astimezone(self.timezone)
                     if now.hour != prev.hour or now.minute != prev.minute:
+                        alarm_time = (self.settings['alarm_time'] + self.snooze) % 1440
+                        if self.settings['alarm'] and ((now.hour * 60) + now.minute) == alarm_time:
+                            self.start_alarming()
+                            print "Alarming!"
+                        elif self.settings['alarm']:
+                            value = ((now.hour * 60) + now.minute)
+                            logging.debug("Waiting until %d to alarm (Currently: %d)" % (alarm_time, value))
+                            
                         break
                 i += 1
 
                 input = self.re.get()
                 if input != 0:
+                    self.lastAction = time.time()
+                    logging.debug("Calling " + str(AlarmClock.modes[self.mode]['knob']) + " Mode: %s, Val: %d" % (self.mode, input))
                     full_update = AlarmClock.modes[self.mode]['knob'](self, input)
                     break
                 button = self.re.get_button()
@@ -721,13 +856,16 @@ class AlarmClock():
                      'button':        menu_button },
         'set':  {    'render_bottom': draw_set,
                      'knob':          set_turn,
-                     'button':        set_press },
+                     'button':        set_button },
         'font': {    'render_bottom': draw_font,
                      'knob':          change_font,
                      'button':        main_button },
         'tone': {    'render_bottom': draw_tone,
                      'knob':          change_tone,
                      'button':        main_button },
+        'snooze': {  'render_bottom': draw_snooze,
+                     'knob':          snooze_turn,
+                     'button':        snooze_button },
     }
 
 
