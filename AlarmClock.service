@@ -1,0 +1,14 @@
+[Unit]
+Description=Alarm Clock
+ConditionFileIsExecutable=/root/eink-alarm-clock/AlarmClock.py
+After=systemd-journald.socket
+
+[Service]
+Type=simple
+ExecStart=/root/eink-alarm-clock/AlarmClock.py
+PIDFile=/run/AlarmClock.pid
+StandardOutput=journal
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -17,6 +17,10 @@ local-install: install-libsoc
 	mkdir -p /usr/share/fonts/truetype/WeatherIcons/
 	cp 'WeatherIcons/Font Files/WeatherIcons.ttf' /usr/share/fonts/truetype/WeatherIcons/
         cp weather-icons/font/weathericons-regular-webfont.ttf /usr/share/fonts/truetype/WeatherIcons/
+	cp epdd.service /etc/systemd/system
+	cp AlarmClock.service /etc/systemd/system
+	systemctl enable epdd.service
+	systemctl enable AlarmClock.service
 
 libsoc/configure:
 	cd libsoc && autoreconf -i

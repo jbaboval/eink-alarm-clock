@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Copyright 2016 John Baboval
 #
@@ -36,6 +37,8 @@ import json
 from urllib2 import urlopen
 import forecastio
 from forecastio.models import Forecast
+import logging
+import subprocess
 
 WHITE = 1
 BLACK = 0
@@ -55,7 +58,7 @@ class AlarmClock():
         'partly-cloudy-night': unichr(0xf086),
         'hail': unichr(0xf015),
         'thunderstorm': unichr(0xf01d),
-        'tornado': unichr(0xf056) 
+        'tornado': unichr(0xf056)
     }
 
     def __init__(self, epd):
@@ -63,48 +66,134 @@ class AlarmClock():
         self.epd = epd
         self.menu_font = '/usr/share/fonts/truetype/freefont/FreeSans.ttf'
 
+        # TODO: Move these out into a separate file
         self.possible_fonts = [
-            '/usr/share/fonts/truetype/fonts-georgewilliams/CaslonBold.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/Caliban.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/Cupola.ttf',
-            '/usr/share/fonts/truetype/fonts-georgewilliams/Caslon-Black.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSerif.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeMono.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeMonoOblique.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeMonoBoldOblique.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
-            '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf',
-            '/usr/share/fonts/truetype/unifont/unifont.ttf',
-            '/usr/share/fonts/truetype/humor-sans/Humor-Sans.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-            '/usr/share/fonts/truetype/dustin/dustismo_bold.ttf',
-            '/usr/share/fonts/truetype/dustin/Dustismo_Roman.ttf',
-            '/usr/share/fonts/truetype/dustin/dustismo_italic.ttf',
-            '/usr/share/fonts/truetype/dustin/Domestic_Manners.ttf',
-            '/usr/share/fonts/truetype/dustin/Junkyard.ttf',
-            '/usr/share/fonts/truetype/dustin/Dustismo.ttf',
-            '/usr/share/fonts/truetype/dustin/Wargames.ttf',
-            '/usr/share/fonts/truetype/dustin/PenguinAttack.ttf',
-            '/usr/share/fonts/truetype/dustin/It_wasn_t_me.ttf',
-            '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Italic.ttf',
-            '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Bold.ttf'
+            { 'filename': '/usr/share/fonts/truetype/fonts-georgewilliams/CaslonBold.ttf',
+              'title':    'Caslon Bold' },
+            { 'filename': '/usr/share/fonts/truetype/fonts-georgewilliams/Caslon-Black.ttf',
+              'title':    'Caslon Black' },
+            { 'filename': '/usr/share/fonts/truetype/fonts-georgewilliams/Caliban.ttf',
+              'title':    'Caliban' },
+            { 'filename': '/usr/share/fonts/truetype/fonts-georgewilliams/Cupola.ttf',
+              'title':    'Cupola' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeSerif.ttf',
+              'title':    'Serif' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf',
+              'title':    'Serif Bold' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeMono.ttf',
+              'title':    'Monospace' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf',
+              'title':    'Monospace Bold' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeMonoOblique.ttf',
+              'title':    'Monospace Oblique' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeMonoBoldOblique.ttf',
+              'title':    'Monospace Bold Oblique' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+              'title':    'Sans-Serif' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+              'title':    'Sans-Serif Bold' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf',
+              'title':    'Sans-Serif Oblique' },
+            { 'filename': '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf',
+              'title':    'Sans-Serif Bold Oblique' },
+            { 'filename': '/usr/share/fonts/truetype/unifont/unifont.ttf',
+              'title':    'Unifont' },
+            { 'filename': '/usr/share/fonts/truetype/humor-sans/Humor-Sans.ttf',
+              'title':    'Humor' },
+            { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',
+              'title':    'DejaVu' },
+            { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf',
+              'title':    'DejaVu Bold' },
+            { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
+              'title':    'DejaVu Monospace' },
+            { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf',
+              'title':    'DejaVu Monospace Bold' },
+            { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+              'title':    'DejaVu Sans' },
+            { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+              'title':    'DejaVu Sans Bold' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Dustismo.ttf',
+              'title':    'Dustismo' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/dustismo_bold.ttf',
+              'title':    'Dustismo Bold' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/dustismo_italic.ttf',
+              'title':    'Dustismo Italic' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Dustismo_Roman.ttf',
+              'title':    'Dustismo Roman' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Bold.ttf',
+              'title':    'Dustismo Roman Bold' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Dustismo_Roman_Italic.ttf',
+              'title':    'Dustismo Roman Italic' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Domestic_Manners.ttf',
+              'title':    'Domestic Manners' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Junkyard.ttf',
+              'title':    'Junkyard' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/Wargames.ttf',
+              'title':    'Wargames' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/PenguinAttack.ttf',
+              'title':    'Penguin Attack' },
+            { 'filename': '/usr/share/fonts/truetype/dustin/It_wasn_t_me.ttf',
+              'title':    'It wasn\'t me!' }
         ]
 
-        self.font_index = 27
+        self.possible_tones = [
+            { 'filename': '/root/tones/Blues.mp3',
+              'title':    'Blues' },
+            { 'filename': '/root/tones/Piano Riff.mp3',
+              'title':    'Piano Riff' },
+            { 'filename': '/root/tones/Sci-Fi.mp3',
+              'title':    'Sci-Fi' },
+            { 'filename': '/root/tones/Pinball.mp3',
+              'title':    'Pinball' },
+            { 'filename': '/root/tones/Crickets.mp3',
+              'title':    'Crickets' },
+            { 'filename': '/root/tones/Motorcycle.mp3',
+              'title':    'Motorcycle' },
+            { 'filename': '/root/tones/Timba.mp3',
+              'title':    'Timba' },
+            { 'filename': '/root/tones/Bark.mp3',
+              'title':    'Bark' },
+            { 'filename': '/root/tones/Trill.mp3',
+              'title':    'Trill' },
+            { 'filename': '/root/tones/Robot.mp3',
+              'title':    'Robot' },
+            { 'filename': '/root/tones/Old Phone.mp3',
+              'title':    'Old Phone' },
+            { 'filename': '/root/tones/Marimba.mp3',
+              'title':    'Marimba' },
+            { 'filename': '/root/tones/Boing.mp3',
+              'title':    'Boing' },
+            { 'filename': '/root/tones/Strum.mp3',
+              'title':    'Strum' },
+            { 'filename': '/root/tones/Xylophone.mp3',
+              'title':    'Xylophone' },
+            { 'filename': '/root/tones/Digital.mp3',
+              'title':    'Digital' },
+            { 'filename': '/root/tones/Time Passing.mp3',
+              'title':    'Time Passing' },
+            { 'filename': '/root/tones/Harp.mp3',
+              'title':    'Harp' },
+            { 'filename': '/root/tones/Bell Tower.mp3',
+              'title':    'Bell Tower' },
+            { 'filename': '/root/tones/Alarm.mp3',
+              'title':    'Alarm' },
+            { 'filename': '/root/tones/Old Car Horn.mp3',
+              'title':    'Old Car Horn' },
+            { 'filename': '/root/tones/Doorbell.mp3',
+              'title':    'Doorbell' },
+            { 'filename': '/root/tones/Sonar.mp3',
+              'title':    'Sonar' },
+            { 'filename': '/root/tones/Ascending.mp3',
+              'title':    'Ascending' },
+            { 'filename': '/root/tones/Duck.mp3',
+              'title':    'Duck' },
+        ]
 
         self.mode = "weather"
         self.timezones = country_timezones('US')
         self.timezone_index = 0
- 
+        self.alarming = False
+
         self.re = RotaryEncoder()
 
         try:
@@ -116,7 +205,7 @@ class AlarmClock():
                 raise
 
         g = GeoIP.open("/usr/share/GeoIP/GeoIPCity.dat", GeoIP.GEOIP_STANDARD)
-        try: 
+        try:
             gr = g.record_by_addr(ip)
             print gr
             self.latitude = gr['latitude']
@@ -135,6 +224,8 @@ class AlarmClock():
             self.settings = {}
             self.settings['twentyfour'] = False
             self.settings['alarm'] = False
+            self.settings['font_index'] = 22
+            self.settings['tone_index'] = 0
 
         try:
             with open('/root/darksky.key', 'r') as f:
@@ -159,7 +250,7 @@ class AlarmClock():
                 self.forecast_time = saved_weather['then']
                 response = saved_weather['forecast']
                 self.forecast = Forecast(response.json(), response, response.headers)
-                print "Loaded weather data from cache"
+                logging.debug("Loaded weather data from cache")
         except Exception as e:
             print "No cached weather data, or failed to load cache"
             print e
@@ -168,7 +259,7 @@ class AlarmClock():
         if self.weather:
             since = datetime.now() - self.forecast_time
             if since.total_seconds() >= (60*60):
-                print "Weather cache is %d seconds old; fetching new data" % since.total_seconds()
+                logging.debug("Weather cache is %d seconds old; fetching new data" % since.total_seconds())
                 try:
                     self.forecast = forecastio.load_forecast(self.darksky_key, self.latitude, self.longitude)
                 except Exception as e:
@@ -193,7 +284,7 @@ class AlarmClock():
             w, h = draw.textsize(str, font=font)
             difference = int(difference / 2)
             miss = self.epd.size[0] - w - 5
-            print "Width: %d, Miss: %d, Difference: %d" % (w, miss, difference)
+            logging.debug("Width: %d, Miss: %d, Difference: %d" % (w, miss, difference))
             if difference <= 0:
                 if miss < 0:
                     difference = 1
@@ -214,9 +305,9 @@ class AlarmClock():
         self.timezone = timezone(self.timezones[self.timezone_index])
 
     def _update_fonts(self):
-        self.font_index = self.font_index % len(self.possible_fonts)
-        font = self.possible_fonts[self.font_index]
-        print "Changing font to " + font
+        self.settings['font_index'] = self.settings['font_index'] % len(self.possible_fonts)
+        font = self.possible_fonts[self.settings['font_index']]['filename']
+        print "Changing font to " + self.possible_fonts[self.settings['font_index']]['title']
 #        if self.settings['twentyfour']:
 #            string = "23:59"
 #        else:
@@ -228,15 +319,36 @@ class AlarmClock():
         self.weather_font = ImageFont.truetype(font, 42)
         self.menu_font = ImageFont.truetype(font, 38)
 
+    def _play_tone_once(self):
+        subprocess.check_output(['mpg123', self.possible_tones[self.settings['tone_index']]['filename']])
+
     def change_font(self, count):
-        self.font_index += count
-        self._update_fonts()
+        self.lastMenuAction = time.time()
+        tone_index = self.settings['tone_index']
+        tone_index += count
+        tone_index = tone_index % len(self.possible_tones)
+        self._set_setting('font_index', tone_index)
+        return True
+
+    def change_tone(self, count):
+        self.lastMenuAction = time.time()
+        self._set_setting('tone_index', self.settings['tone_index'] + count)
+        self._play_tone_once()
         return True
 
     def main_button(self, button):
         self.mode = 'menu'
         self.menuItem = 'alarm'
         return False
+
+    def main_knob(self, count):
+        if self.alarming:
+            self.mode = 'snooze'
+            return False
+        else:
+            self.mode = 'menu'
+            self.menuItem = 'alarmOnly'
+            return False
 
     menu = {
         # Main menu
@@ -282,18 +394,92 @@ class AlarmClock():
                          'subArrow':     True,
                          'buttonAction': 'mode',
                          'buttonParam':  'tone',
-                         'next':         'setting-exit',
+                         'next':         'setting-font',
                          'prev':         'setting-24h'
                        },
-        'setting-exit':      { 'text':         "Exit",
-                       'subArrow':     False,
-                       'buttonAction': 'mode',
-                       'buttonParam':  'weather',
-                       'next':         'setting-24h',
-                       'prev':         'setting-alarm-tone'
-                     }
+        'setting-font':
+                       { 'text':         "Font",
+                         'subArrow':     True,
+                         'buttonAction': 'mode',
+                         'buttonParam':  'font',
+                         'next':         'setting-exit',
+                         'prev':         'setting-alarm-tone'
+                       },
+        'setting-exit':
+                       { 'text':         "Exit",
+                         'subArrow':     False,
+                         'buttonAction': 'mode',
+                         'buttonParam':  'weather',
+                         'next':         'setting-24h',
+                         'prev':         'setting-font'
+                       },
+
+        # Alarm-only (Knob turned, not in menu)
+        'alarmOnly':   { 'text':         "Alarm",
+                         'subArrow':     False,
+                         'buttonAction': 'toggle',
+                         'buttonParam':  'alarm',
+                         'next':         'alarmOnly-return',
+                         'prev':         'alarmOnly-return'
+                       },
+        'alarmOnly-return':
+                       { 'text':         "Exit",
+                         'subArror':     False,
+                         'buttonAction': 'mode',
+                         'buttonParam':  'weather',
+                         'next':         'alarmOnly',
+                         'prev':         'alarmOnly',
+                       },
+
     }
 
+    def draw_tone(self, draw, width, height, time_date_bottom):
+
+        avail = height - time_date_bottom - 2
+
+        tonestr = "> " +  self.possible_tones[self.settings['tone_index']]['title']
+        w, h = draw.textsize(tonestr, font=self.date_font)
+
+        vspace = (avail - h) / 2
+        y = time_date_bottom + vspace
+        x = 8
+
+        draw.text((x, y), tonestr, fill=BLACK, font=self.date_font)
+
+        x += w
+
+        try:
+            now = time.time()
+            if now - self.lastMenuAction > 15:
+                self.mode = 'weather'
+        except:
+            self.lastMenuAction = time.time()
+
+        return False
+
+    def draw_font(self, draw, width, height, time_date_bottom):
+
+        avail = height - time_date_bottom - 2
+
+        fontstr = "> " +  self.possible_fonts[self.settings['font_index']]['title']
+        w, h = draw.textsize(fontstr, font=self.date_font)
+
+        vspace = (avail - h) / 2
+        y = time_date_bottom + vspace
+        x = 8
+
+        draw.text((x, y), fontstr, fill=BLACK, font=self.date_font)
+
+        x += w
+
+        try:
+            now = time.time()
+            if now - self.lastMenuAction > 15:
+                self.mode = 'weather'
+        except:
+            self.lastMenuAction = time.time()
+
+        return False
 
     def draw_menu(self, draw, width, height, time_date_bottom):
 
@@ -301,7 +487,7 @@ class AlarmClock():
 
         menustr = "> " + AlarmClock.menu[self.menuItem]['text']
         w, h = draw.textsize(menustr, font=self.menu_font)
-        
+
         vspace = (avail - h) / 2
         y = time_date_bottom + vspace
         x = 8
@@ -320,7 +506,7 @@ class AlarmClock():
 
         try:
             now = time.time()
-            if now - self.lastMenuAction > 30:
+            if now - self.lastMenuAction > 15:
                 self.mode = 'weather'
         except:
             self.lastMenuAction = time.time()
@@ -384,13 +570,13 @@ class AlarmClock():
             if moonPhase < 0:
                 moonPhase = 27
             moonstr = unichr(moonPhase + 0xf0d0)
- 
+
             # weather
             avail = height - 2 - time_date_bottom
 
             iconstr = AlarmClock.weather_icons[self.forecast.hourly().icon]
             iw, ih = draw.textsize(iconstr, font=self.icon_font)
- 
+
             tempstr = u"%d\u00B0" % (self.forecast.currently().apparentTemperature) #, self.forecast.daily().data[0].apparentTemperatureMin, self.forecast.daily().data[0].apparentTemperatureMax)
             tw, th = draw.textsize(tempstr, font=self.weather_font)
 
@@ -518,14 +704,20 @@ class AlarmClock():
 
     modes = {
         'weather': { 'render_bottom': draw_weather,
-                     'knob':          change_font,
+                     'knob':          main_knob,
                      'button':        main_button },
         'menu': {    'render_bottom': draw_menu,
                      'knob':          menu_turn,
                      'button':        menu_button },
         'set':  {    'render_bottom': draw_set,
                      'knob':          set_turn,
-                     'button':        set_press }
+                     'button':        set_press },
+        'font': {    'render_bottom': draw_font,
+                     'knob':          change_font,
+                     'button':        main_button },
+        'tone': {    'render_bottom': draw_tone,
+                     'knob':          change_tone,
+                     'button':        main_button },
     }
 
 
