@@ -610,7 +610,6 @@ class AlarmClock():
         utc = timezone('UTC')
 
         blinked = False
-        timeUpdate = True
 
         # initially set all white background
         image = Image.new('1', self.epd.size, WHITE)
@@ -627,13 +626,20 @@ class AlarmClock():
         self._update_timezone()
 
         while True:
+            prev = now
             now = now.astimezone(self.timezone)
+
+            start = time.time()
             # clear the display buffer
             draw.rectangle((0, 0, width, height), fill=WHITE, outline=WHITE)
+
+            t_rect = time.time()
 
             # border
             draw.rectangle((1, 1, width - 1, height - 1), fill=WHITE, outline=BLACK)
             draw.rectangle((2, 2, width - 2, height - 2), fill=WHITE, outline=BLACK)
+
+            t_border = time.time()
 
             if self.settings['twentyfour']:
                 timefmt = "%-H:%M"
@@ -656,11 +662,15 @@ class AlarmClock():
             y += space
             draw.text(((width - dw)/2, y), daystr, fill=BLACK, font=self.date_font)
 
+            t_clock = time.time()
+
             try:
                 AlarmClock.modes[self.mode]['render_bottom'](self, draw, width, height, time_date_bottom)
             except Exception as e:
                 print e
                 pass
+
+            t_bottom = time.time()
 
             # display image on the panel
             self.epd.display(image)
@@ -670,26 +680,26 @@ class AlarmClock():
                 full_update = False
                 self.epd.update()
 
+            t_update = time.time()
+
             if (now.minute % 5) == 0:
                 if blinked == False:
                     blinked = True
                     self.epd.blink()
                     self._update_weather()
             else:
-                blinked = True
+                blinked = False
+
+            logging.debug("Clear: %s, Draw Border: %s, Draw Clock: %s, Draw Bottom: %s, Update: %s" % \
+                          (str(t_rect - start), str(t_border - t_rect), str(t_clock - t_border), str(t_bottom - t_clock), str(t_update - t_bottom)))
 
             # wait for next minute
             i = 0
             while True:
                 if (i % 100) == 0: # Only call today() once every 100 loops
                     now = utc.localize(datetime.today())
-                    if now.second == 0:
-                        if timeUpdate: # Only update the time once per minute
-                            timeUpdate = False
-                            break
-                    else:
-                        timeUpdate = True
-
+                    if now.hour != prev.hour or now.minute != prev.minute:
+                        break
                 i += 1
 
                 input = self.re.get()
