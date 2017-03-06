@@ -323,13 +323,19 @@ class AlarmClock():
         self.menu_font = ImageFont.truetype(font, 38)
 
     def _play_tone_once(self):
-        subprocess.check_output(['mpg123', self.possible_tones[self.settings['tone_index']]['filename']])
+        try:
+            self.mpg123.kill()
+        except:
+            pass
+        finally:
+            self.mpg123 = subprocess.Popen(['mpg123', '--quiet', '--mono', self.possible_tones[self.settings['tone_index']]['filename']], close_fds=True)
 
     def change_font(self, count):
-        tone_index = self.settings['tone_index']
-        tone_index += count
-        tone_index = tone_index % len(self.possible_tones)
-        self._set_setting('font_index', tone_index)
+        font_index = self.settings['font_index']
+        font_index += count
+        font_index = tone_index % len(self.possible_fonts)
+        self._set_setting('font_index', font_index)
+        self._update_fonts()
         return True
 
     def change_tone(self, count):
