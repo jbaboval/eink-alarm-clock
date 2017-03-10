@@ -344,22 +344,20 @@ class AlarmClock():
         return True
 
     def snooze_button(self, button):
-        if self.alarming or self.snooze > 0:
+        self.stop_alarming()
 
-            if self.snooze_value == 0:
-                self.stop_alarming()
-                self.snooze = 0
-                self.mode = 'weather'
-                print "Alarm stopped until tomorrow..."
-                return True
-
-            now = self.utc.localize(datetime.today())
-            now = now.astimezone(self.timezone)
-            # Set snooze to snooze_value from now
-            self.snooze = ((now.hour * 60) + now.minute) - self.settings['alarm_time'] + self.snooze_value
-            self.stop_alarming()
-            print 'Snoozing!'
+        if self.snooze_value == 0:
+            self.snooze = 0
             self.mode = 'weather'
+            print "Alarm stopped until tomorrow..."
+            return True
+
+        now = self.utc.localize(datetime.today())
+        now = now.astimezone(self.timezone)
+        # Set snooze to snooze_value from now
+        self.snooze = ((now.hour * 60) + now.minute) - self.settings['alarm_time'] + self.snooze_value
+        print 'Snoozing!'
+        self.mode = 'weather'
         return True
 
     def start_alarming(self):
@@ -389,7 +387,7 @@ class AlarmClock():
             now = self.utc.localize(datetime.today())
             now = now.astimezone(self.timezone)
             # Set snooze to 5 minutes from now
-            self.snooze = ((now.hour * 60) + now.minute) - self.settings['alarm_time'] + 5
+            self.snooze = ((now.hour * 60) + now.minute) - self.settings['alarm_time'] + 7
             print 'Snoozing!'
             self.stop_alarming()
         else:
@@ -618,7 +616,7 @@ class AlarmClock():
         try:
             now = time.time()
             if now - self.lastAction > 15:
-                self.mode = 'weather'
+                self.snooze_button(None)
         except:
             self.lastAction = time.time()
 
