@@ -4,17 +4,17 @@ PervasiveDisplays EPD extension board-05 (http://repaper.org/tools.html)
 
 
 Pinout:
-      Display     | CHIP      | CHIP PRO
-  ------------------------------------
-    1 VCC         | VCC-3V3   | VCC-3V3
-    7 SPI_CK      | CSICK     | CSI-MCLK
-    8 BUSY        | CSID6     | CSID6
-   10 /RESET      | CSID7     | CSID7
-   11 PANEL_ON    | CSID4     | CSID4
-   12 DISCHARGE   | CSID2     | CSID2
-   13 BORDER_CTRL | CSID0     | CSID0
-   14 SPI_MISO    | CSIVSYNC  | CSIVSYNC
-   15 SPI_MOSI    | CSIHSYNC  | CSIHSYNC
-   18 FLASH_CS    | VCC-3V3   | VCC-3V3
-   19 /EPD_CS     | CSIPCK    | CSI-MCLK
-   20 GND         | GND       | GND
+      Display     | CHIP      | CHIP PRO  | Embedded Artists panel
+  ----------------------------------------------------------------
+    1 VCC         | VCC-3V3   | VCC-3V3   | 2 VCC
+    7 SPI_CK      | CSICK     | CSI-MCLK  | 3 SPI-SCK
+    8 BUSY        | CSID6     | CSID6     | 7 Busy (UART-RX) 
+   10 /RESET      | CSID7     | CSID7     | 12 Reset (PWM2)
+   11 PANEL_ON    | CSID4     | CSID4     | 13 PWR (AIN0)
+   12 DISCHARGE   | CSID2     | CSID2     | 14 Discharge (AIN1)
+   13 BORDER_CTRL | CSID0     | CSID0     | 8 Border Ctrl (UART-TX)
+   14 SPI_MISO    | CSIVSYNC  | CSIVSYNC  | 5 MISO
+   15 SPI_MOSI    | CSIHSYNC  | CSIHSYNC  | 4 MOSI
+   18 FLASH_CS    | VCC-3V3   | VCC-3V3   | 2 VCC
+   19 /EPD_CS     | CSIPCK    | CSI-MCLK  | 6 SPI-SSEL
+   20 GND         | GND       | GND       | 1 GND
