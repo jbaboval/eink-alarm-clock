@@ -16,5 +16,5 @@ Pinout:
    14 SPI_MISO    | CSIVSYNC  | CSIVSYNC  | 5 MISO
    15 SPI_MOSI    | CSIHSYNC  | CSIHSYNC  | 4 MOSI
    18 FLASH_CS    | VCC-3V3   | VCC-3V3   | 2 VCC
-   19 /EPD_CS     | CSIPCK    | CSI-MCLK  | 6 SPI-SSEL
+   19 /EPD_CS     | CSIPCK    | CSI-PCK   | 6 SPI-SSEL
    20 GND         | GND       | GND       | 1 GND
