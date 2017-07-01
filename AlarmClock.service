@@ -1,7 +1,7 @@
 [Unit]
 Description=Alarm Clock
 ConditionFileIsExecutable=/root/eink-alarm-clock/AlarmClock.py
-After=systemd-journald.socket
+After=epdd.service network-online.target
 
 [Service]
 Type=simple

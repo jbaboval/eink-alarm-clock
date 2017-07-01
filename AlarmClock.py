@@ -40,6 +40,7 @@ from forecastio.models import Forecast
 import logging
 import subprocess
 import threading
+import CHIP_IO.GPIO as GPIO
 
 WHITE = 1
 BLACK = 0
@@ -187,6 +188,15 @@ class AlarmClock():
             { 'filename': '/root/tones/Duck.mp3',
               'title':    'Duck' },
         ]
+
+        try:
+            with open("/sys/class/gpio/unexport", "w") as unexport:
+                unexport.write("133\n")
+        except IOError:
+            pass
+
+        GPIO.setup("CSID1", GPIO.OUT)
+        GPIO.output("CSID1", GPIO.LOW)
 
         self.mode = "weather"
         self.timezones = country_timezones('US')
@@ -366,6 +376,7 @@ class AlarmClock():
 
     def start_alarming(self):
         self.alarming = True
+        GPIO.output("CSID1", GPIO.HIGH)
         try:
             self.mpg123.kill()
         except:
@@ -375,6 +386,7 @@ class AlarmClock():
 
     def stop_alarming(self):
         self.alarming = False
+        GPIO.output("CSID1", GPIO.LOW)
         try:
             self.mpg123.kill()
         except:
