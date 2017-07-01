@@ -39,6 +39,7 @@ import forecastio
 from forecastio.models import Forecast
 import logging
 import subprocess
+import threading
 
 WHITE = 1
 BLACK = 0
@@ -96,8 +97,6 @@ class AlarmClock():
               'title':    'Sans-Serif Oblique' },
             { 'filename': '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf',
               'title':    'Sans-Serif Bold Oblique' },
-            { 'filename': '/usr/share/fonts/truetype/unifont/unifont.ttf',
-              'title':    'Unifont' },
             { 'filename': '/usr/share/fonts/truetype/humor-sans/Humor-Sans.ttf',
               'title':    'Humor' },
             { 'filename': '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',
@@ -196,7 +195,12 @@ class AlarmClock():
         atexit.register(self.stop_alarming)
         self.snooze = 0
 
-        self.re = RotaryEncoder()
+        self.lock = threading.Lock()      # create lock for rotary switch
+        self.pips = 0
+        self.presses = 0
+
+        self.re = RotaryEncoder([0x11], invert=False, factor=0.5)
+        self.re.register_callbacks(turn=self.turn_cb, press=self.press_cb)
 
         try:
             ip = json.load(urlopen('http://jsonip.com'))['ip']
@@ -226,7 +230,7 @@ class AlarmClock():
             self.settings = {}
             self.settings['twentyfour'] = False
             self.settings['alarm'] = False
-            self.settings['font_index'] = 22
+            self.settings['font_index'] = 21
             self.settings['tone_index'] = 0
             self.settings['alarm_time'] = 360 # Minutes from midnight
 
@@ -308,7 +312,7 @@ class AlarmClock():
         self.timezone = timezone(self.timezones[self.timezone_index])
 
     def _update_fonts(self):
-        self.settings['font_index'] = self.settings['font_index'] % len(self.possible_fonts)
+        self.settings['font_index'] = int(self.settings['font_index'] % len(self.possible_fonts))
         font = self.possible_fonts[self.settings['font_index']]['filename']
         print "Changing font to " + self.possible_fonts[self.settings['font_index']]['title']
 #        if self.settings['twentyfour']:
@@ -333,7 +337,7 @@ class AlarmClock():
     def change_font(self, count):
         font_index = self.settings['font_index']
         font_index += count
-        font_index = tone_index % len(self.possible_fonts)
+        font_index = font_index % len(self.possible_fonts)
         self._set_setting('font_index', font_index)
         self._update_fonts()
         return True
@@ -733,6 +737,16 @@ class AlarmClock():
             y = time_date_bottom + ((avail - mh) / 2)
             draw.text((x, y), moonstr, fill=BLACK, font=self.icon_font)
 
+    def turn_cb(self, address, pips):
+        self.lock.acquire()
+        self.pips += pips
+        self.lock.release()
+
+    def press_cb(self, address, presses):
+        self.lock.acquire()
+        self.presses += presses
+        self.lock.release()
+
     def run(self):
         self.utc = timezone('UTC')
 
@@ -839,13 +853,19 @@ class AlarmClock():
                         break
                 i += 1
 
-                input = self.re.get()
+                self.lock.acquire()
+                input = self.pips
+                button = self.presses
+                self.pips = 0
+                self.presses = 0
+                self.lock.release()
+                if input or button:
+                    print (input, button)
                 if input != 0:
                     self.lastAction = time.time()
                     logging.debug("Calling " + str(AlarmClock.modes[self.mode]['knob']) + " Mode: %s, Val: %d" % (self.mode, input))
                     full_update = AlarmClock.modes[self.mode]['knob'](self, input)
                     break
-                button = self.re.get_button()
                 if button != 0:
                     full_update = AlarmClock.modes[self.mode]['button'](self, button)
                     break

@@ -5,7 +5,7 @@ After=systemd-journald.socket
 
 [Service]
 Type=simple
-ExecStart=/root/eink-alarm-clock/gratis/PlatformWithOS/driver-common/epdd --panel=2.7 --spi=/dev/spidev32766.0
+ExecStart=/root/eink-alarm-clock/gratis/PlatformWithOS/driver-common/epdd --panel=2.7 --spi=/dev/spidev2.0
 PIDFile=/run/epdd.pid
 StandardOutput=journal
 Restart=on-failure
