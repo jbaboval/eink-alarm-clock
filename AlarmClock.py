@@ -401,6 +401,7 @@ class AlarmClock():
 
     def main_knob(self, count):
         if self.alarming or self.snooze > 0:
+            self.stop_alarming()
             self.mode = 'snooze'
             self.snooze_value = 5
             return self.snooze_turn(count)
