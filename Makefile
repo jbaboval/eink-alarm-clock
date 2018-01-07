@@ -26,7 +26,7 @@ libsoc/configure:
 	cd libsoc && autoreconf -i
 
 libsoc/Makefile:
-	cd libsoc && ./configure --enable-board=chip
+	cd libsoc && ./configure --enable-board=chip --prefix=/usr
 
 .PHONY: build-libsoc
 build-libsoc: libsoc/configure libsoc/Makefile

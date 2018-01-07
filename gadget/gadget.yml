@@ -1,0 +1,16 @@
+spec: "0.0"
+name: gadget
+uuid: a6c6f893-f34c-49d4-8b48-7d01b1f41b5f
+type: docker
+onboot:
+services:
+- name: gadget
+  uuid: 543d9c13-cea9-4575-a290-a6dcba514dc6
+  image: ""
+  directory: "../"
+  net: ""
+  readonly: false
+  command: ['python']
+  binds: ['/sys:/sys']
+  capabilities: ['SYS_RAWIO']
+  devices: ['/dev/mem']
