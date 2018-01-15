@@ -10,7 +10,7 @@ services:
   directory: "../"
   net: ""
   readonly: false
-  command: ['python']
-  binds: ['/sys:/sys']
-  capabilities: ['SYS_RAWIO']
-  devices: ['/dev/mem']
+  command: ['init']
+  binds: ['/sys:/sys', '/data/root:/root']
+  capabilities: ['SYS_RAWIO', 'SYS_ADMIN']
+  devices: ['/dev/mem', '/dev/i2c-0', '/dev/i2c-1', '/dev/spidev32766.0']

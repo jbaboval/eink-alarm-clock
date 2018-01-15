@@ -20,6 +20,7 @@
 
 import sys
 import os
+os.environ['PYTHON_EGG_CACHE'] = '/tmp/.cache' # Everything but /tmp is mounted read-only
 import atexit
 import pickle
 from PIL import Image
@@ -189,11 +190,11 @@ class AlarmClock():
               'title':    'Duck' },
         ]
 
-        try:
-            with open("/sys/class/gpio/unexport", "w") as unexport:
-                unexport.write("133\n")
-        except IOError:
-            pass
+#        try:
+#            with open("/sys/class/gpio/unexport", "w") as unexport:
+#                unexport.write("133\n")
+#        except IOError:
+#            pass
 
         GPIO.setup("CSID1", GPIO.OUT)
         GPIO.output("CSID1", GPIO.LOW)
@@ -257,12 +258,15 @@ class AlarmClock():
 
     def _set_setting(self, setting, value):
         self.settings[setting] = value
-        with open('/root/alarmclock-settings.pickle', 'wb') as settings:
-            pickle.dump(self.settings, settings)
+        try:
+            with open('/root/alarmclock-settings.pickle', 'wb') as settings:
+                pickle.dump(self.settings, settings)
+        except:
+            print "Failed to update settings"
 
     def _update_weather(self):
         try:
-            with open('/root/weather-cache.pickle', 'rb') as wf:
+            with open('/tmp/weather-cache.pickle', 'rb') as wf:
                 saved_weather = pickle.load(wf)
                 self.forecast_time = saved_weather['then']
                 response = saved_weather['forecast']
@@ -285,7 +289,7 @@ class AlarmClock():
                     return
 
                 self.forecast_time = datetime.now()
-                with open('/root/weather-cache.pickle', 'wb') as wf:
+                with open('/tmp/weather-cache.pickle', 'wb') as wf:
                     pickle.dump({'then': self.forecast_time, 'forecast': self.forecast.response}, wf)
         #else:
             # Weather is disabled
@@ -376,7 +380,17 @@ class AlarmClock():
 
     def start_alarming(self):
         self.alarming = True
-        GPIO.output("CSID1", GPIO.HIGH)
+        try:
+            GPIO.output("CSID1", GPIO.HIGH)
+        except:
+            try:
+                with open("/sys/class/gpio/unexport", "w") as export:
+                    export.write("133\n")
+            except IOError:
+                pass
+            GPIO.output("CSID1", GPIO.HIGH)
+            pass
+
         try:
             self.mpg123.kill()
         except:
@@ -386,7 +400,17 @@ class AlarmClock():
 
     def stop_alarming(self):
         self.alarming = False
-        GPIO.output("CSID1", GPIO.LOW)
+        try:
+            GPIO.output("CSID1", GPIO.LOW)
+        except:
+            try:
+                with open("/sys/class/gpio/unexport", "w") as export:
+                    export.write("133\n")
+            except IOError:
+                pass
+            GPIO.output("CSID1", GPIO.LOW)
+            pass
+
         try:
             self.mpg123.kill()
         except:
