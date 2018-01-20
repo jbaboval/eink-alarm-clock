@@ -13,4 +13,4 @@ services:
   command: ['init']
   binds: ['/sys:/sys', '/data/root:/root']
   capabilities: ['SYS_RAWIO', 'SYS_ADMIN']
-  devices: ['/dev/mem', '/dev/i2c-0', '/dev/i2c-1', '/dev/spidev32766.0']
+  devices: ['/dev/mem', '/dev/i2c-0', '/dev/i2c-1', '/dev/spidev32766.0', '/dev/snd/controlC0', '/dev/snd/pcmC0D0c', '/dev/snd/pcmC0D0p']

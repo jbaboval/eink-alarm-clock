@@ -357,7 +357,7 @@ class AlarmClock():
         return True
 
     def change_tone(self, count):
-        self._set_setting('tone_index', self.settings['tone_index'] + count)
+        self._set_setting('tone_index', int(self.settings['tone_index'] + count))
         self._play_tone_once()
         return True
 
